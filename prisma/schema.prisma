@@ -1,0 +1,176 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  name          String?
+  password      String
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  role          Role      @default(USER)
+  organization  Organization @relation(fields: [organizationId], references: [id])
+  organizationId String
+  teams         TeamUser[]
+  emailNotifications Boolean @default(true)
+
+  @@index([email])
+  @@index([organizationId])
+}
+
+model Organization {
+  id          String    @id @default(cuid())
+  name        String
+  slug        String    @unique
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  users       User[]
+  services    Service[]
+  incidents   Incident[]
+  maintenance Maintenance[]
+  teams       Team[]
+
+  @@index([slug])
+}
+
+model Team {
+  id            String    @id @default(cuid())
+  name          String
+  organization  Organization @relation(fields: [organizationId], references: [id])
+  organizationId String
+  users         TeamUser[]
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@index([organizationId])
+}
+
+model TeamUser {
+  id        String   @id @default(cuid())
+  team      Team     @relation(fields: [teamId], references: [id])
+  teamId    String
+  user      User     @relation(fields: [userId], references: [id])
+  userId    String
+  role      Role     @default(USER)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([teamId, userId])
+  @@index([teamId])
+  @@index([userId])
+}
+
+model Service {
+  id            String    @id @default(cuid())
+  name          String
+  status        ServiceStatus @default(OPERATIONAL)
+  description   String?
+  organization  Organization @relation(fields: [organizationId], references: [id])
+  organizationId String
+  metrics       Metric[]
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@index([organizationId])
+  @@index([status])
+}
+
+model Incident {
+  id            String    @id @default(cuid())
+  title         String
+  description   String
+  status        IncidentStatus @default(INVESTIGATING)
+  impact        ImpactLevel @default(NONE)
+  organization  Organization @relation(fields: [organizationId], references: [id])
+  organizationId String
+  updates       IncidentUpdate[]
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  resolvedAt    DateTime?
+
+  @@index([organizationId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+model IncidentUpdate {
+  id          String    @id @default(cuid())
+  incident    Incident  @relation(fields: [incidentId], references: [id])
+  incidentId  String
+  status      String
+  message     String
+  createdAt   DateTime  @default(now())
+
+  @@index([incidentId])
+}
+
+model Maintenance {
+  id            String    @id @default(cuid())
+  title         String
+  description   String
+  status        MaintenanceStatus @default(SCHEDULED)
+  startTime     DateTime
+  endTime       DateTime
+  organization  Organization @relation(fields: [organizationId], references: [id])
+  organizationId String
+  affectedServices String
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@index([organizationId])
+  @@index([status])
+  @@index([startTime])
+}
+
+model Metric {
+  id          String    @id @default(cuid())
+  name        String
+  value       Float
+  unit        String
+  service     Service   @relation(fields: [serviceId], references: [id])
+  serviceId   String
+  timestamp   DateTime  @default(now())
+
+  @@index([serviceId])
+  @@index([timestamp])
+}
+
+enum Role {
+  USER
+  ADMIN
+  SUPER_ADMIN
+}
+
+enum ServiceStatus {
+  OPERATIONAL
+  DEGRADED
+  PARTIAL_OUTAGE
+  MAJOR_OUTAGE
+  MAINTENANCE
+}
+
+enum IncidentStatus {
+  INVESTIGATING
+  IDENTIFIED
+  MONITORING
+  RESOLVED
+}
+
+enum ImpactLevel {
+  NONE
+  MINOR
+  MAJOR
+  CRITICAL
+}
+
+enum MaintenanceStatus {
+  SCHEDULED
+  IN_PROGRESS
+  COMPLETED
+} 
